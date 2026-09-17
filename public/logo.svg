@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" fill="none">
+  <rect width="240" height="280" rx="32" fill="#ffffff"/>
+  <!-- Outer Rounded Frame -->
+  <rect x="35" y="25" width="170" height="170" rx="46" stroke="#002B49" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Left Pillar in Grey/Silver -->
+  <path d="M 68 142 L 68 72 L 110 52 L 110 142 L 92 142 L 92 82 L 86 85 L 86 142 Z" fill="#9CA3AF"/>
+  <!-- Right Pillar in Navy -->
+  <path d="M 115 52 L 157 72 L 157 120 C 157 134 148 142 133 142 C 118 142 112 134 112 120 L 112 75 L 131 75 L 131 120 C 131 124 134 127 137 127 C 140 127 142 124 142 120 L 142 84 L 115 70 Z" fill="#002B49"/>
+  <!-- MIHAD Text -->
+  <text x="120" y="232" text-anchor="middle" font-family="'Cairo', sans-serif" font-weight="900" font-size="34" fill="#002B49" letter-spacing="3">MIHAD</text>
+  <!-- Arabic Text -->
+  <text x="120" y="264" text-anchor="middle" font-family="'Cairo', sans-serif" font-weight="800" font-size="24" fill="#002B49">مِهَـاد</text>
+</svg>
