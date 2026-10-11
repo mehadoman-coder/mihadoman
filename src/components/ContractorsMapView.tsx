@@ -84,21 +84,21 @@ export const ContractorsMapView: React.FC<ContractorsMapViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Map Control Bar */}
-      <div className="glass-card rounded-2xl p-4 border border-slate-700/60 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-xl">
+      <div className="royal-card rounded-2xl p-4 border border-white/20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-2xl">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-white/20 flex items-center justify-center text-blue-300 shrink-0">
             <Compass className="w-5 h-5 animate-spin-slow" />
           </div>
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2">
               <span>خريطة الرادار الجغرافي للمقاولين</span>
               {userLocation && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
                   موقعك مفعل: {userLocation.name}
                 </span>
               )}
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-300">
               تصفح المقاولين الأقرب جغرافياً إلى موقع مشروعك مع حساب دقيق للمسافات
             </p>
           </div>
@@ -111,19 +111,19 @@ export const ContractorsMapView: React.FC<ContractorsMapViewProps> = ({
             type="button"
             onClick={onDetectLocation}
             disabled={isDetectingLocation}
-            className="px-3.5 py-2 rounded-xl glass-card text-xs font-bold text-white hover:border-blue-400 transition-all flex items-center gap-2 cursor-pointer border border-slate-700 bg-slate-900/80"
+            className="px-3.5 py-2 rounded-xl pure-white-btn text-xs font-bold text-[#071633] transition-all flex items-center gap-2 cursor-pointer shadow-md"
           >
-            <Crosshair className={`w-4 h-4 text-emerald-400 ${isDetectingLocation ? 'animate-spin' : ''}`} />
+            <Crosshair className={`w-4 h-4 text-emerald-600 ${isDetectingLocation ? 'animate-spin' : ''}`} />
             <span>{isDetectingLocation ? 'جارِ تحديد موقعك...' : 'تحديث موقعي التلقائي (GPS)'}</span>
           </button>
 
           {/* Zoom controls */}
-          <div className="flex items-center rounded-xl bg-slate-900/90 border border-slate-700 p-1 text-xs">
+          <div className="flex items-center rounded-xl bg-[#061530]/90 border border-white/20 p-1 text-xs">
             <button
               type="button"
               onClick={() => setMapZoomLevel('close')}
               className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                mapZoomLevel === 'close' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                mapZoomLevel === 'close' ? 'bg-blue-600 text-white font-bold' : 'text-slate-300 hover:text-white'
               }`}
             >
               نطاق ضيق (حي)
@@ -132,7 +132,7 @@ export const ContractorsMapView: React.FC<ContractorsMapViewProps> = ({
               type="button"
               onClick={() => setMapZoomLevel('city')}
               className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                mapZoomLevel === 'city' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                mapZoomLevel === 'city' ? 'bg-blue-600 text-white font-bold' : 'text-slate-300 hover:text-white'
               }`}
             >
               المدينة
@@ -141,7 +141,7 @@ export const ContractorsMapView: React.FC<ContractorsMapViewProps> = ({
               type="button"
               onClick={() => setMapZoomLevel('regional')}
               className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                mapZoomLevel === 'regional' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                mapZoomLevel === 'regional' ? 'bg-blue-600 text-white font-bold' : 'text-slate-300 hover:text-white'
               }`}
             >
               إقليمي
@@ -149,19 +149,19 @@ export const ContractorsMapView: React.FC<ContractorsMapViewProps> = ({
           </div>
 
           {/* Radius selector */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-700">
-            <Sliders className="w-3.5 h-3.5 text-blue-400" />
+          <div className="flex items-center gap-1.5 text-xs text-slate-200 bg-[#061530]/90 px-3 py-1.5 rounded-xl border border-white/20">
+            <Sliders className="w-3.5 h-3.5 text-blue-300" />
             <span>النطاق:</span>
             <select
               value={selectedRadiusKm}
               onChange={(e) => onSelectRadiusKm(Number(e.target.value))}
               className="bg-transparent text-white font-bold outline-none cursor-pointer"
             >
-              <option value={0} className="bg-slate-900">كافة المسافات</option>
-              <option value={15} className="bg-slate-900">أقل من 15 كم</option>
-              <option value={30} className="bg-slate-900">أقل من 30 كم</option>
-              <option value={50} className="bg-slate-900">أقل من 50 كم</option>
-              <option value={100} className="bg-slate-900">أقل من 100 كم</option>
+              <option value={0} className="bg-[#071633]">كافة المسافات</option>
+              <option value={15} className="bg-[#071633]">أقل من 15 كم</option>
+              <option value={30} className="bg-[#071633]">أقل من 30 كم</option>
+              <option value={50} className="bg-[#071633]">أقل من 50 كم</option>
+              <option value={100} className="bg-[#071633]">أقل من 100 كم</option>
             </select>
           </div>
         </div>
@@ -171,7 +171,7 @@ export const ContractorsMapView: React.FC<ContractorsMapViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Interactive Map Visualizer */}
         <div className="lg:col-span-8">
-          <div className="relative w-full h-[480px] md:h-[540px] rounded-3xl overflow-hidden border border-slate-700/80 bg-radial from-slate-900 via-slate-950 to-black shadow-2xl">
+          <div className="relative w-full h-[480px] md:h-[540px] rounded-3xl overflow-hidden border border-white/20 bg-gradient-to-b from-[#091e44] via-[#061530] to-[#040e21] shadow-2xl">
             {/* Background Grid & Coordinate Lines */}
             <div className="absolute inset-0 opacity-15 pointer-events-none bg-[linear-gradient(to_right,#3b82f6_1px,transparent_1px),linear-gradient(to_bottom,#3b82f6_1px,transparent_1px)] bg-[size:40px_40px]" />
             

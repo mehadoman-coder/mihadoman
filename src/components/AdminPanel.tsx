@@ -16,11 +16,16 @@ import {
   Edit,
   Sparkles,
   Phone,
-  AlertTriangle
+  AlertTriangle,
+  Image as ImageIcon,
+  RotateCcw,
+  Upload
 } from 'lucide-react';
 import { GlassIcon } from './GlassIcon';
 import { Contractor, Consultant, Advertisement } from '../types';
 import { useCurrency } from '../context/CurrencyContext';
+import { useLogo } from '../context/LogoContext';
+import { MihadLogo } from './MihadLogo';
 
 interface AdminPanelProps {
   contractors: Contractor[];
@@ -46,8 +51,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddAd
 }) => {
   const { formatPrice, currentCurrencyConfig } = useCurrency();
-  const [activeTab, setActiveTab] = useState<'ads' | 'contractors' | 'consultants'>('ads');
+  const { logoUrl, setLogoUrl, resetLogo } = useLogo();
+  const [activeTab, setActiveTab] = useState<'ads' | 'contractors' | 'consultants' | 'branding'>('ads');
   
+  // Custom Logo input state
+  const [customLogoInput, setCustomLogoInput] = useState(logoUrl || '');
+  const [logoSaveMessage, setLogoSaveMessage] = useState<string | null>(null);
+
   // Modals
   const [showAddContractorModal, setShowAddContractorModal] = useState(false);
   const [showAddConsultantModal, setShowAddConsultantModal] = useState(false);
@@ -173,7 +183,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-6">
       {/* Admin Title Bar */}
       <div className="glass-card rounded-2xl p-6 md:p-8 border border-blue-500/40 relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
@@ -275,6 +285,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             }`}
           >
             إدارة الاستشاريين ({consultants.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('branding')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'branding' ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white shadow-lg' : 'glass-icon-btn text-amber-300 hover:text-white'
+            }`}
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            <span>شعار وهوية المنصة</span>
           </button>
         </div>
 
@@ -471,6 +491,165 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: PLATFORM BRANDING & LOGO CUSTOMIZER */}
+      {activeTab === 'branding' && (
+        <div className="space-y-6">
+          <div className="glass-card rounded-2xl p-6 md:p-8 border border-amber-500/40 bg-gradient-to-r from-amber-950/20 via-slate-900/60 to-slate-950 shadow-xl space-y-6">
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                <ImageIcon className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span>تخصيص وهوية شعار منصة مِهاد</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    خاص برئيس المنصة
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  تغيير شعار المنصة الرئيسي ليظهر فوراً في الأيقونة الدائرية الفاخرة عبر كافة الواجهات وصفحات المنصة
+                </p>
+              </div>
+            </div>
+
+            {logoSaveMessage && (
+              <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 shrink-0" />
+                <span>{logoSaveMessage}</span>
+              </div>
+            )}
+
+            {/* Live Circular Logo Preview */}
+            <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-right">
+                <div className="flex items-center gap-4">
+                  {/* Circular preview */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-[11px] text-slate-400 mb-2 font-bold">المعاينة الدائرية (Header)</span>
+                    <MihadLogo size="lg" variant="icon" inverted />
+                  </div>
+                  
+                  <div className="flex flex-col items-center">
+                    <span className="text-[11px] text-slate-400 mb-2 font-bold">الهوية الكاملة (مع الاسم)</span>
+                    <MihadLogo size="md" variant="horizontal" inverted />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-white">الأيقونة الدائرية المعتمدة للمنصة</h4>
+                  <p className="text-xs text-slate-400 max-w-md">
+                    يتم تطبيق تصميم دائري فخم (Circular Badge) بإطار مضيء حول الشعار دائماً ليضمن التناسق التام على كافة الشاشات وأجهزة الجوال والكمبيوتر.
+                  </p>
+                  <span className="inline-block text-[11px] text-emerald-400 font-medium">
+                    الحالة الحالية: {logoUrl ? 'شعار مخصص قيد التطبيق ✓' : 'الشعار الهندسي الافتراضي لمنصة مِهاد'}
+                  </span>
+                </div>
+              </div>
+
+              {logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetLogo();
+                    setCustomLogoInput('');
+                    setLogoSaveMessage('تمت استعادة الشعار الهندسي الافتراضي لمنصة مِهاد بنجاح!');
+                    setTimeout(() => setLogoSaveMessage(null), 3500);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 border border-slate-700 cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>استعادة الشعار الافتراضي</span>
+                </button>
+              )}
+            </div>
+
+            {/* Custom Logo Form */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (customLogoInput.trim()) {
+                  setLogoUrl(customLogoInput.trim());
+                  setLogoSaveMessage('تم تحديث شعار المنصة وحفظه بنجاح! الشعار الدائري الجديد ظاهر الآن لجميع المستخدمين.');
+                  setTimeout(() => setLogoSaveMessage(null), 4000);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  رابط صورة الشعار الجديد (URL / Image Link):
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://example.com/your-logo.png"
+                    value={customLogoInput}
+                    onChange={(e) => setCustomLogoInput(e.target.value)}
+                    className="flex-1 px-4 py-2.5 rounded-xl glass-input text-white border border-slate-700 text-xs focus:outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-lg transition-all"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>حفظ وتطبيق الشعار</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  يمكنك استخدام روابط صور بصيغ PNG, SVG, JPG أو WebP (تظهر دائماً داخل إطار أيقونة دائرية فخمة).
+                </p>
+              </div>
+
+              {/* Quick Preset Logos */}
+              <div className="pt-2">
+                <span className="text-xs text-slate-400 block mb-2 font-bold">أو اختر من تصاميم وهوية مِهاد المقترحة:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    {
+                      title: 'شعار برج الإتقان الملكي',
+                      url: 'https://images.unsplash.com/photo-1541888946425-d0fbb1861593?w=200&auto=format&fit=crop&q=80',
+                      desc: 'رمز معماري حديث'
+                    },
+                    {
+                      title: 'أيقونة التاج الهندسي الذهبي',
+                      url: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=200&auto=format&fit=crop&q=80',
+                      desc: 'نمط إشراف وتصميم'
+                    },
+                    {
+                      title: 'برج العاصمة المستقبلي',
+                      url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=200&auto=format&fit=crop&q=80',
+                      desc: 'نمط مشاريع كبرى'
+                    }
+                  ].map((preset, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        setCustomLogoInput(preset.url);
+                        setLogoUrl(preset.url);
+                        setLogoSaveMessage(`تم اعتماد "${preset.title}" كشعار رسمي دائري للمنصة.`);
+                        setTimeout(() => setLogoSaveMessage(null), 3500);
+                      }}
+                      className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-amber-400/60 cursor-pointer flex items-center gap-3 transition-all hover:bg-slate-800"
+                    >
+                      <img
+                        src={preset.url}
+                        alt={preset.title}
+                        className="w-10 h-10 rounded-full object-cover border border-amber-500/40"
+                      />
+                      <div className="text-right">
+                        <span className="block text-xs font-bold text-white">{preset.title}</span>
+                        <span className="text-[10px] text-slate-400">{preset.desc}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

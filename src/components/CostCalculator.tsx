@@ -157,7 +157,7 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
   const builtAreaApprox = Math.round(landArea * (buildingType === 'villa' ? 0.6 : 0.65) * floorsCount + (basement ? landArea * 0.55 : 0));
 
   return (
-    <div id="calculator-section" className="relative space-y-8">
+    <div id="calculator-section" className="relative space-y-4 md:space-y-6">
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-icon-badge text-blue-200 text-sm font-semibold border border-blue-400/30">
@@ -181,16 +181,16 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Controls Column */}
-        <div className="lg:col-span-7 glass-card rounded-2xl p-6 md:p-8 space-y-6 border border-slate-700/50">
-          <div className="flex items-center justify-between border-b border-slate-700/60 pb-4">
+        <div className="lg:col-span-7 royal-card rounded-2xl p-6 md:p-8 space-y-6 border border-white/20 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center gap-3">
               <GlassIcon icon={Calculator} size="md" variant="royal" />
               <div>
                 <h3 className="text-lg font-bold text-white">بيانات ومعايير المشروع</h3>
-                <p className="text-xs text-slate-400">حدد مواصفات العقار لاحتساب التكلفة التقديرية</p>
+                <p className="text-xs text-slate-300">حدد مواصفات العقار لاحتساب التكلفة التقديرية</p>
               </div>
             </div>
-            <span className="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+            <span className="text-xs px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 font-bold">
               دقة الحساب: ~95%
             </span>
           </div>
@@ -213,8 +213,8 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
                     onClick={() => setBuildingType(item.id as any)}
                     className={`p-3 rounded-xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       buildingType === item.id
-                        ? 'bg-blue-600/30 border-blue-400 text-white shadow-lg ring-1 ring-blue-400'
-                        : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                        ? 'bg-blue-600 border-blue-400 text-white shadow-lg ring-1 ring-white/30'
+                        : 'bg-[#061530]/80 border-white/15 text-slate-300 hover:text-white hover:border-white/40'
                     }`}
                   >
                     <Icon className="w-5 h-5 text-blue-300" />
@@ -364,23 +364,23 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
         {/* Results & Financial Summary Column */}
         <div className="lg:col-span-5 space-y-5">
           {/* Main Total Card */}
-          <div className="glass-card rounded-2xl p-6 md:p-8 border border-blue-500/40 shadow-2xl relative overflow-hidden">
+          <div className="royal-card rounded-2xl p-6 md:p-8 border border-white/20 shadow-2xl relative overflow-hidden">
             {/* Background Glow */}
             <div className="absolute -top-24 -right-24 w-52 h-52 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
             
             <div className="relative space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-200">
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-600 text-white shadow-sm">
                   التقدير المالي الإجمالي الشامل
                 </span>
                 <span className="flex items-center gap-1.5 text-xs text-slate-300">
-                  <Clock className="w-3.5 h-3.5 text-blue-400" />
+                  <Clock className="w-3.5 h-3.5 text-blue-300" />
                   <span>المدة المتوقعة: ~{result.estimatedDurationMonths} شهر</span>
                 </span>
               </div>
 
               <div>
-                <p className="text-xs text-slate-400 mb-1">التكلفة التقديرية لكامل المشروع</p>
+                <p className="text-xs text-slate-300 mb-1">التكلفة التقديرية لكامل المشروع</p>
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
                     {formatPrice(result.totalEstimatedCost)}
@@ -395,11 +395,11 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
 
               {/* Progress bar visual */}
               <div className="space-y-1.5 pt-2">
-                <div className="flex justify-between text-xs text-slate-400">
+                <div className="flex justify-between text-xs text-slate-300">
                   <span>توزيع الميزانية الإنشائية</span>
                   <span>100%</span>
                 </div>
-                <div className="h-3 w-full bg-slate-900 rounded-full overflow-hidden flex border border-slate-700/70">
+                <div className="h-3 w-full bg-[#051226] rounded-full overflow-hidden flex border border-white/20">
                   <div style={{ width: `${result.breakdown[0].percentage}%` }} className="bg-blue-600" title="عظم" />
                   <div style={{ width: `${result.breakdown[1].percentage}%` }} className="bg-sky-400" title="تشطيب" />
                   <div style={{ width: `${result.breakdown[2].percentage}%` }} className="bg-indigo-400" title="كهروميكانيك" />
@@ -409,14 +409,14 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
               </div>
 
               {/* Items Breakdown List */}
-              <div className="space-y-2.5 pt-3 border-t border-slate-800">
+              <div className="space-y-2.5 pt-3 border-t border-white/10">
                 {result.breakdown.map((item, idx) => (
-                  <div key={idx} className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1">
+                  <div key={idx} className="p-2.5 rounded-xl bg-[#061530]/90 border border-white/15 space-y-1">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-200">{item.item}</span>
+                      <span className="font-bold text-white">{item.item}</span>
                       <span className="font-mono font-bold text-blue-300">{formatPrice(item.cost)}</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-normal">{item.details}</p>
+                    <p className="text-[11px] text-slate-300 leading-normal">{item.details}</p>
                   </div>
                 ))}
               </div>
@@ -427,9 +427,9 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
                   <button
                     type="button"
                     onClick={onFindContractors}
-                    className="w-full py-3 px-4 rounded-xl royal-gradient-btn text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                    className="w-full py-3 px-4 rounded-xl pure-white-btn text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg"
                   >
-                    <HardHat className="w-4 h-4" />
+                    <HardHat className="w-4 h-4 text-[#071633]" />
                     <span>طلب عروض أسعار من المقاولين المعتمدين</span>
                   </button>
                 )}
@@ -437,7 +437,7 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
                   <button
                     type="button"
                     onClick={onFindConsultants}
-                    className="w-full py-2.5 px-4 rounded-xl silver-btn text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl royal-card border border-white/20 text-slate-200 hover:text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Compass className="w-4 h-4 text-blue-300" />
                     <span>تعيين مكتب استشاري للإشراف والمخططات</span>

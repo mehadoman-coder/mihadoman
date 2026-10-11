@@ -21,7 +21,20 @@ export interface Contractor {
   classificationGrade: 'درجة ممتازة' | 'درجة أولى' | 'درجة ثانية' | 'درجة ثالثة' | 'درجة رابعة' | 'درجة أولى - مجلس المناقصات' | 'معتمد حكومي';
   coordinates?: { lat: number; lng: number };
   distanceKm?: number;
+  reviews?: Review[];
   createdAt?: any;
+}
+
+export interface Review {
+  id: string;
+  targetId: string; // contractor or consultant id
+  targetType: 'contractor' | 'consultant';
+  userName: string;
+  userRole?: string;
+  userAvatar?: string;
+  rating: number; // 1 to 5
+  comment: string;
+  createdAt: string;
 }
 
 export interface Consultant {
@@ -46,6 +59,7 @@ export interface Consultant {
   portfolioImages?: string[];
   coordinates?: { lat: number; lng: number };
   distanceKm?: number;
+  reviews?: Review[];
   createdAt?: any;
 }
 
@@ -94,4 +108,5 @@ export interface UserProfile {
   phone?: string;
   avatarUrl?: string;
   companyName?: string;
+  password?: string;
 }

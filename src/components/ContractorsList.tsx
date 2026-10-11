@@ -37,23 +37,41 @@ import {
   getGoogleMapsDirectionsUrl 
 } from '../lib/geoUtils';
 import { ContractorsMapView } from './ContractorsMapView';
+import { ReviewsModal } from './ReviewsModal';
+import { SetContractorLocationModal } from './SetContractorLocationModal';
+import { Review } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ContractorsListProps {
   contractors: Contractor[];
   onSelectContractor?: (contractor: Contractor) => void;
   onRequestQuote?: (contractor: Contractor) => void;
+  onAddReview?: (review: Omit<Review, 'id' | 'createdAt'>) => void;
+  onUpdateContractorLocation?: (contractorId: string, coordinates: { lat: number; lng: number }, locationText: string) => void;
+  onStartPlatformChat?: (contractor: Contractor) => void;
+  onRequireAuth?: (actionName: string) => void;
 }
 
 export const ContractorsList: React.FC<ContractorsListProps> = ({
   contractors,
   onSelectContractor,
-  onRequestQuote
+  onRequestQuote,
+  onAddReview,
+  onUpdateContractorLocation,
+  onStartPlatformChat,
+  onRequireAuth
 }) => {
+  const { user } = useAuth();
+  const { t } = useLanguage();
   const { formatPrice } = useCurrency();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
   const [selectedContractorDetail, setSelectedContractorDetail] = useState<Contractor | null>(null);
+  const [reviewsModalContractor, setReviewsModalContractor] = useState<Contractor | null>(null);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [contractorForPinning, setContractorForPinning] = useState<Contractor | null>(null);
 
   // Client Location & Proximity State
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; name: string } | null>({
@@ -178,7 +196,7 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
   }, [contractorsWithDistance, searchTerm, selectedCategory, selectedCity, selectedRadiusKm, sortBy]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-6">
       {/* Toast Notification */}
       {locationToast && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-emerald-950/95 text-emerald-200 border border-emerald-500/50 shadow-2xl flex items-center gap-2.5 text-xs md:text-sm font-bold backdrop-blur-md animate-fade-in">
@@ -241,22 +259,22 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
       </div>
 
       {/* Proximity & Nearby Bar (Client Location Hub) */}
-      <div className="glass-card rounded-2xl p-4 md:p-5 border border-blue-500/30 bg-gradient-to-r from-blue-950/40 via-slate-900/70 to-slate-900/50 shadow-xl space-y-4">
+      <div className="royal-card rounded-2xl p-4 md:p-5 border border-white/20 bg-gradient-to-r from-[#0d2757] via-[#091d40] to-[#061530] shadow-2xl space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Location Status */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
-              <Crosshair className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-white/25 flex items-center justify-center text-blue-300 shrink-0">
+              <Crosshair className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-400">موقع مشروعك الحالي:</span>
-                <span className="text-sm font-black text-white bg-slate-800/80 px-2.5 py-0.5 rounded-lg border border-slate-700">
+                <span className="text-xs font-bold text-slate-300">موقع مشروعك الحالي:</span>
+                <span className="text-sm font-black text-white bg-white/15 px-2.5 py-0.5 rounded-lg border border-white/20">
                   {userLocation ? userLocation.name : 'لم يتم التحديد'}
                 </span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-300 mt-0.5">
                 يتم حساب المسافة بالكيلومترات وترتيب المقاولين تلقائياً حسب الأقرب جغرافياً إليك
               </p>
             </div>
@@ -269,17 +287,23 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
               type="button"
               onClick={handleDetectLocation}
               disabled={isDetectingLocation}
-              className="px-3.5 py-2 rounded-xl royal-gradient-btn text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer"
+              className="px-3.5 py-2 rounded-xl royal-gradient-btn text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer border border-white/30"
               title="جلب موقعي الجغرافي عبر إحداثيات GPS بالمتصفح"
             >
               <LocateFixed className={`w-4 h-4 ${isDetectingLocation ? 'animate-spin' : ''}`} />
               <span>{isDetectingLocation ? 'جارِ رصد GPS...' : 'تحديد موقعي التلقائي (GPS)'}</span>
             </button>
 
+            {/* Client In-Platform Security Assurance */}
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>تواصل آمن وموثق عبر المنصة فقط</span>
+            </div>
+
             {/* Manual Preset Location Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-700 text-xs">
-              <MapPin className="w-3.5 h-3.5 text-blue-400" />
-              <span className="text-slate-400">أو اختر منطقتك:</span>
+            <div className="flex items-center gap-1.5 bg-[#071633]/90 px-3 py-1.5 rounded-xl border border-white/20 text-xs">
+              <MapPin className="w-3.5 h-3.5 text-blue-300" />
+              <span className="text-slate-300">أو اختر منطقتك:</span>
               <select
                 value={userLocation?.name || ''}
                 onChange={(e) => {
@@ -351,17 +375,17 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
       </div>
 
       {/* Standard Search and Categories Bar */}
-      <div className="glass-card rounded-2xl p-4 md:p-5 space-y-4 border border-slate-700/60 shadow-xl">
+      <div className="royal-card rounded-2xl p-4 md:p-5 space-y-4 border border-white/20 shadow-2xl">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           {/* Search input */}
           <div className="md:col-span-6 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-blue-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="ابحث باسم المقاول، الشركة، التخصص، أو الخدمة..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pr-10 pl-4 py-2.5 rounded-xl glass-input text-white placeholder-slate-500 text-sm border border-slate-700"
+              className="w-full pr-10 pl-4 py-2.5 rounded-xl glass-input text-white placeholder-slate-400 text-sm border border-white/20"
             />
           </div>
 
@@ -370,16 +394,16 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
             <select
               value={selectedCity}
               onChange={(e) => setSelectedCity(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl glass-input text-white border border-slate-700 text-sm"
+              className="w-full px-3 py-2.5 rounded-xl glass-input text-white border border-white/20 text-sm"
             >
-              <option value="all" className="bg-slate-900">جميع المدن والمحافظات</option>
-              <option value="مسقط" className="bg-slate-900">مسقط (القرم / الخوير / بوشر)</option>
-              <option value="السيب" className="bg-slate-900">السيب (الموج / الخوض / المعبيلة)</option>
-              <option value="صلالة" className="bg-slate-900">صلالة ومحافظة ظفار</option>
-              <option value="صحار" className="bg-slate-900">صحار وشمال الباطنة</option>
-              <option value="نزوى" className="bg-slate-900">نزوى والداخلية</option>
-              <option value="الرياض" className="bg-slate-900">الرياض</option>
-              <option value="دبي" className="bg-slate-900">دبي والإمارات</option>
+              <option value="all" className="bg-[#071633]">جميع المدن والمحافظات</option>
+              <option value="مسقط" className="bg-[#071633]">مسقط (القرم / الخوير / بوشر)</option>
+              <option value="السيب" className="bg-[#071633]">السيب (الموج / الخوض / المعبيلة)</option>
+              <option value="صلالة" className="bg-[#071633]">صلالة ومحافظة ظفار</option>
+              <option value="صحار" className="bg-[#071633]">صحار وشمال الباطنة</option>
+              <option value="نزوى" className="bg-[#071633]">نزوى والداخلية</option>
+              <option value="الرياض" className="bg-[#071633]">الرياض</option>
+              <option value="دبي" className="bg-[#071633]">دبي والإمارات</option>
             </select>
           </div>
 
@@ -395,7 +419,7 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
                   setSelectedRadiusKm(0);
                   setSortBy('nearby');
                 }}
-                className="text-xs text-blue-400 hover:text-blue-300 underline cursor-pointer"
+                className="text-xs text-blue-300 hover:text-white underline cursor-pointer"
               >
                 إعادة ضبط كافة الفلاتر
               </button>
@@ -412,8 +436,8 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
               onClick={() => setSelectedCategory(cat.id)}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
                 selectedCategory === cat.id
-                  ? 'bg-blue-600/30 border-blue-400 text-white shadow-md shadow-blue-900/40 ring-1 ring-blue-400'
-                  : 'bg-slate-900/50 border-slate-700/80 text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                  ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-900/40 ring-1 ring-white/30'
+                  : 'bg-[#061530]/80 border-white/15 text-slate-300 hover:text-white hover:border-white/40'
               }`}
             >
               {cat.label}
@@ -438,7 +462,7 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
         /* Grid of Contractors Mode */
         <div>
           {filteredAndSortedContractors.length === 0 ? (
-            <div className="glass-card rounded-2xl p-12 text-center space-y-3">
+            <div className="glass-card rounded-2xl p-8 sm:p-12 text-center space-y-3">
               <GlassIcon icon={Building2} size="lg" variant="royal" className="mx-auto" />
               <h3 className="text-lg font-bold text-white">لم نجد مقاولين يطابقون معايير البحث أو النطاق الجغرافي المحدد</h3>
               <p className="text-sm text-slate-400">جرب توسيع نطاق المسافة (مثلاً: كافة المسافات) أو تغيير المدينة</p>
@@ -455,17 +479,17 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {filteredAndSortedContractors.map((contractor, idx) => {
                 const isVeryClose = (contractor.distanceKm ?? 999) < 20;
 
                 return (
                   <div
                     key={`contractor-${contractor.id}-${idx}`}
-                    className={`glass-card glass-card-hover rounded-2xl overflow-hidden flex flex-col justify-between border relative group ${
+                    className={`royal-card glass-card-hover rounded-2xl overflow-hidden flex flex-col justify-between border relative group ${
                       isVeryClose
-                        ? 'border-emerald-500/40 shadow-lg shadow-emerald-950/30'
-                        : 'border-slate-700/70'
+                        ? 'border-emerald-400/60 ring-1 ring-emerald-400/30 shadow-lg shadow-emerald-950/40'
+                        : 'border-white/15 hover:border-white/40'
                     }`}
                   >
                     {/* Card Top Information */}
@@ -476,58 +500,63 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
                           <img
                             src={contractor.avatarUrl || 'https://images.unsplash.com/photo-1541888946425-d0fbb1861593?w=150'}
                             alt={contractor.companyName}
-                            className="w-13 h-13 rounded-xl object-cover border border-slate-600 shadow-md"
+                            className="w-13 h-13 rounded-xl object-cover border border-white/20 shadow-md"
                           />
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <h3 className="text-base font-bold text-white line-clamp-1 group-hover:text-blue-300 transition-colors">
+                              <h3 className="text-base font-bold text-white line-clamp-1 group-hover:text-blue-200 transition-colors">
                                 {contractor.companyName}
                               </h3>
                               {contractor.verified && (
                                 <span title="معتمد وموثق تجارياً">
-                                  <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
+                                  <ShieldCheck className="w-4 h-4 text-blue-300 shrink-0" />
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-slate-400 font-medium">{contractor.name}</p>
+                            <p className="text-xs text-slate-300 font-medium">{contractor.name}</p>
                           </div>
                         </div>
 
-                        <span className="text-[11px] font-bold px-2 py-1 rounded bg-blue-950/80 border border-blue-500/40 text-blue-300 shrink-0">
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded bg-blue-600 text-white shadow-sm shrink-0">
                           {contractor.classificationGrade}
                         </span>
                       </div>
 
                       {/* Distance Badge & Location */}
-                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/80">
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-white/10">
                         {contractor.distanceKm !== undefined ? (
                           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold border ${
                             isVeryClose
                               ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
-                              : 'bg-blue-950/60 text-blue-300 border-blue-800/40'
+                              : 'bg-white/10 text-white border-white/20'
                           }`}>
                             <MapPin className="w-3.5 h-3.5 text-emerald-400" />
                             <span>على بعد {formatDistance(contractor.distanceKm)} منك</span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1 text-slate-400">
-                            <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                          <div className="flex items-center gap-1 text-slate-300">
+                            <MapPin className="w-3.5 h-3.5 text-blue-300" />
                             <span>{contractor.location}</span>
                           </div>
                         )}
 
-                        <div className="flex items-center gap-1.5 text-amber-300">
-                          <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                        <button
+                          type="button"
+                          onClick={() => setReviewsModalContractor(contractor)}
+                          className="flex items-center gap-1.5 text-amber-300 hover:text-amber-200 cursor-pointer bg-amber-950/40 hover:bg-amber-900/50 px-2 py-0.5 rounded-lg border border-amber-500/30 transition-colors"
+                          title="عرض وتقييم تجارب العملاء"
+                        >
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                           <span className="font-bold text-white">{contractor.rating}</span>
-                          <span className="text-slate-400">({contractor.reviewsCount})</span>
-                        </div>
+                          <span className="text-slate-300 text-[11px]">({contractor.reviews?.length || contractor.reviewsCount} تقييم)</span>
+                        </button>
                       </div>
 
                       {/* Exact Area Location if distance badge is shown */}
                       {contractor.distanceKm !== undefined && (
-                        <div className="text-[11px] text-slate-400 flex items-center justify-between">
+                        <div className="text-[11px] text-slate-300 flex items-center justify-between">
                           <span className="flex items-center gap-1">
-                            <Building2 className="w-3 h-3 text-slate-500" />
+                            <Building2 className="w-3 h-3 text-slate-400" />
                             <span>المقر: {contractor.location}</span>
                           </span>
 
@@ -540,7 +569,7 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
                               )}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold"
+                              className="text-blue-300 hover:text-white flex items-center gap-1 font-semibold"
                               title="فتح الاتجاهات عبر Google Maps"
                             >
                               <Navigation className="w-3 h-3" />
@@ -551,7 +580,7 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
                       )}
 
                       {/* Bio snippet */}
-                      <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed">
                         {contractor.bio}
                       </p>
 
@@ -560,13 +589,13 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
                         {contractor.services.slice(0, 3).map((service, idx) => (
                           <span
                             key={idx}
-                            className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700 text-slate-300"
+                            className="text-[11px] px-2 py-0.5 rounded-md bg-[#061530]/90 border border-white/15 text-slate-200"
                           >
                             {service}
                           </span>
                         ))}
                         {contractor.services.length > 3 && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-400">
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#061530]/90 text-slate-300 border border-white/10">
                             +{contractor.services.length - 3}
                           </span>
                         )}
@@ -574,23 +603,23 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
 
                       {/* Experience & Projects count */}
                       <div className="grid grid-cols-2 gap-2 pt-2 text-center text-xs">
-                        <div className="p-2 rounded-xl bg-slate-900/70 border border-slate-800">
-                          <span className="block text-slate-400 text-[10px]">الخبرة المعتمدة</span>
+                        <div className="p-2 rounded-xl bg-[#061530]/90 border border-white/15">
+                          <span className="block text-slate-300 text-[10px]">الخبرة المعتمدة</span>
                           <span className="font-bold text-white">{contractor.experienceYears} عام</span>
                         </div>
-                        <div className="p-2 rounded-xl bg-slate-900/70 border border-slate-800">
-                          <span className="block text-slate-400 text-[10px]">مشاريع منجزة</span>
+                        <div className="p-2 rounded-xl bg-[#061530]/90 border border-white/15">
+                          <span className="block text-slate-300 text-[10px]">مشاريع منجزة</span>
                           <span className="font-bold text-blue-300">{contractor.completedProjectsCount}+ مشروع</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Card Footer with Price & Actions */}
-                    <div className="p-4 bg-slate-900/80 border-t border-slate-800 flex items-center justify-between gap-3">
+                    <div className="p-4 bg-[#051226]/95 border-t border-white/15 flex items-center justify-between gap-3">
                       <div>
-                        <span className="block text-[10px] text-slate-400">يبدأ من</span>
+                        <span className="block text-[10px] text-slate-300">يبدأ من</span>
                         <span className="text-sm font-extrabold text-white">
-                          {formatPrice(contractor.startingPricePerMeter)} <span className="text-[10px] font-normal text-slate-400">/ م²</span>
+                          {formatPrice(contractor.startingPricePerMeter)} <span className="text-[10px] font-normal text-slate-300">/ م²</span>
                         </span>
                       </div>
 
@@ -598,7 +627,7 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
                         <button
                           type="button"
                           onClick={() => setSelectedContractorDetail(contractor)}
-                          className="p-2 rounded-lg glass-icon-btn text-slate-300 hover:text-white cursor-pointer"
+                          className="p-2 rounded-lg royal-card text-slate-200 hover:text-white cursor-pointer border border-white/20"
                           title="التفاصيل وسابقة الأعمال"
                         >
                           <ExternalLink className="w-4 h-4" />
@@ -607,12 +636,17 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            if (onRequestQuote) onRequestQuote(contractor);
+                            if (!user) {
+                              if (onRequireAuth) onRequireAuth(`مراسلة "${contractor.companyName}" وطلب عرض السعر عبر المنصة`);
+                            } else {
+                              if (onStartPlatformChat) onStartPlatformChat(contractor);
+                            }
                           }}
-                          className="px-3.5 py-2 rounded-xl royal-gradient-btn text-white text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow"
+                          className="px-3.5 py-2 rounded-xl pure-white-btn text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow"
+                          title="تواصل حصري وآمن عبر المنصة فقط"
                         >
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>تواصل واطلب عرض</span>
+                          <MessageSquare className="w-3.5 h-3.5 text-[#071633]" />
+                          <span>مراسلة عبر المنصة فقط</span>
                         </button>
                       </div>
                     </div>
@@ -718,35 +752,87 @@ export const ContractorsList: React.FC<ContractorsListProps> = ({
                 </div>
               )}
 
-              {/* Direct Contact Options */}
-              <div className="p-4 rounded-xl bg-blue-950/40 border border-blue-800/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div>
-                  <span className="text-xs text-blue-300 block">رقم الاتصال المباشر للمقاول</span>
-                  <span className="text-base font-bold text-white font-mono">{selectedContractorDetail.phone}</span>
+              {/* In-Platform Exclusive Communication Banner & Actions */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/70 via-indigo-950/60 to-blue-950/80 border border-blue-500/40 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div>
+                    <span className="text-xs font-bold text-white block">التواصل والتعاقد محمي حصرياً عبر المنصة</span>
+                    <span className="text-[11px] text-blue-200">توثيق رسمي لجميع عروض الأسعار والاتفاقيات وضمانات البناء</span>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <a
-                    href={`tel:${selectedContractorDetail.phone}`}
-                    className="px-4 py-2 rounded-xl royal-gradient-btn text-white text-xs font-bold flex items-center gap-1.5 shadow"
-                  >
-                    <Phone className="w-4 h-4" />
-                    <span>اتصال فوري</span>
-                  </a>
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      if (onRequestQuote) onRequestQuote(selectedContractorDetail);
-                      setSelectedContractorDetail(null);
+                      if (!user) {
+                        if (onRequireAuth) onRequireAuth(`تقييم شركة "${selectedContractorDetail.companyName}"`);
+                      } else {
+                        setReviewsModalContractor(selectedContractorDetail);
+                      }
                     }}
-                    className="px-4 py-2 rounded-xl silver-btn text-xs font-bold"
+                    className="px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    طلب تسعيرة رسمية
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <span>التقييمات ({selectedContractorDetail.reviews?.length || selectedContractorDetail.reviewsCount})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!user) {
+                        if (onRequireAuth) onRequireAuth(`مراسلة "${selectedContractorDetail.companyName}" عبر المنصة`);
+                      } else {
+                        if (onStartPlatformChat) onStartPlatformChat(selectedContractorDetail);
+                        setSelectedContractorDetail(null);
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl pure-white-btn text-xs font-bold flex items-center gap-1.5 shadow-lg cursor-pointer"
+                  >
+                    <MessageSquare className="w-4 h-4 text-[#071633]" />
+                    <span>مراسلة وتفاوض آمن عبر المنصة فقط</span>
                   </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Contractor Pin Location Modal */}
+      {isPinModalOpen && (
+        <SetContractorLocationModal
+          isOpen={isPinModalOpen}
+          onClose={() => {
+            setIsPinModalOpen(false);
+            setContractorForPinning(null);
+          }}
+          contractors={contractors}
+          preselectedContractor={contractorForPinning}
+          onUpdateLocation={(cId, coords, locText) => {
+            if (onUpdateContractorLocation) {
+              onUpdateContractorLocation(cId, coords, locText);
+            }
+          }}
+        />
+      )}
+
+      {/* Interactive Reviews Modal */}
+      {reviewsModalContractor && (
+        <ReviewsModal
+          isOpen={true}
+          onClose={() => setReviewsModalContractor(null)}
+          targetId={reviewsModalContractor.id}
+          targetType="contractor"
+          targetTitle={reviewsModalContractor.companyName}
+          targetAvatar={reviewsModalContractor.avatarUrl}
+          reviews={reviewsModalContractor.reviews || []}
+          onAddReview={(newReview) => {
+            if (onAddReview) {
+              onAddReview(newReview);
+            }
+          }}
+        />
       )}
     </div>
   );

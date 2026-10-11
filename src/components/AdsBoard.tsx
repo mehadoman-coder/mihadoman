@@ -16,22 +16,31 @@ import {
   Layers,
   ArrowUpRight,
   Filter,
-  CheckCircle2
+  CheckCircle2,
+  MessageSquare,
+  ShieldCheck,
+  Lock
 } from 'lucide-react';
 import { GlassIcon } from './GlassIcon';
 import { Advertisement } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface AdsBoardProps {
   ads: Advertisement[];
   onAddAd: (newAd: Partial<Advertisement>) => void;
   onApplyBid?: (ad: Advertisement) => void;
+  onRequireAuth?: (actionName: string) => void;
+  onStartPlatformChat?: (target: { id: string; name?: string; companyName?: string; officeName?: string }) => void;
 }
 
 export const AdsBoard: React.FC<AdsBoardProps> = ({
   ads,
   onAddAd,
-  onApplyBid
+  onApplyBid,
+  onRequireAuth,
+  onStartPlatformChat
 }) => {
+  const { user } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedAdDetail, setSelectedAdDetail] = useState<Advertisement | null>(null);
@@ -99,7 +108,7 @@ export const AdsBoard: React.FC<AdsBoardProps> = ({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-6">
       {/* Header with Call to Action */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -117,7 +126,13 @@ export const AdsBoard: React.FC<AdsBoardProps> = ({
 
         <button
           type="button"
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            if (!user) {
+              if (onRequireAuth) onRequireAuth('نشر إعلان / طلب مقاول أو استشاري في لوحة المشاريع');
+            } else {
+              setShowCreateModal(true);
+            }
+          }}
           className="self-start md:self-auto px-5 py-3 rounded-xl royal-gradient-btn text-white text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-blue-900/30"
         >
           <Plus className="w-5 h-5" />
@@ -134,8 +149,8 @@ export const AdsBoard: React.FC<AdsBoardProps> = ({
             onClick={() => setSelectedCategory(cat.id)}
             className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer border ${
               selectedCategory === cat.id
-                ? 'bg-blue-600/30 border-blue-400 text-white shadow-md shadow-blue-900/40 ring-1 ring-blue-400'
-                : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+                ? 'bg-blue-600 border-blue-400 text-white shadow-md shadow-blue-900/40 ring-1 ring-white/30'
+                : 'bg-[#061530]/80 border-white/15 text-slate-300 hover:text-white hover:border-white/40'
             }`}
           >
             {cat.label}
@@ -144,24 +159,24 @@ export const AdsBoard: React.FC<AdsBoardProps> = ({
       </div>
 
       {/* Grid of Ads */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         {filteredAds.map((ad, idx) => (
           <div
             key={`ad-card-${ad.id}-${idx}`}
-            className="glass-card glass-card-hover rounded-2xl p-6 border border-slate-700/70 flex flex-col justify-between space-y-4 relative group"
+            className="royal-card glass-card-hover rounded-2xl p-6 border border-white/15 hover:border-white/40 flex flex-col justify-between space-y-4 relative group"
           >
             <div className="space-y-3">
               {/* Badges row */}
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold px-2.5 py-1 rounded bg-blue-950/80 border border-blue-500/40 text-blue-300">
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded bg-blue-600 text-white shadow-sm">
                   {ad.category === 'residential' ? 'سكني' : ad.category === 'commercial' ? 'تجاري' : ad.category === 'tender' ? 'مناقصة' : 'ترميم'}
                 </span>
 
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                <div className="flex items-center gap-2 text-xs text-slate-300">
+                  <Clock className="w-3.5 h-3.5 text-blue-300" />
                   <span>نشط الآن</span>
                   {ad.bidsCount !== undefined && (
-                    <span className="bg-slate-800 text-blue-300 px-2 py-0.5 rounded text-[11px]">
+                    <span className="bg-white/15 text-white px-2 py-0.5 rounded text-[11px] font-bold border border-white/20">
                       {ad.bidsCount} عروض مقدمة
                     </span>
                   )}
@@ -169,46 +184,46 @@ export const AdsBoard: React.FC<AdsBoardProps> = ({
               </div>
 
               {/* Title */}
-              <h3 className="text-base md:text-lg font-bold text-white group-hover:text-blue-300 transition-colors leading-snug">
+              <h3 className="text-base md:text-lg font-bold text-white group-hover:text-blue-200 transition-colors leading-snug">
                 {ad.title}
               </h3>
 
               {/* Description */}
-              <p className="text-xs md:text-sm text-slate-300 leading-relaxed line-clamp-3">
+              <p className="text-xs md:text-sm text-slate-200 leading-relaxed line-clamp-3">
                 {ad.description}
               </p>
 
               {/* Meta information tags */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 text-xs">
-                <div className="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block">الموقع</span>
+                <div className="p-2 rounded-xl bg-[#061530]/90 border border-white/15">
+                  <span className="text-[10px] text-slate-300 block">الموقع</span>
                   <span className="font-semibold text-white flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-blue-400 shrink-0" />
+                    <MapPin className="w-3 h-3 text-blue-300 shrink-0" />
                     <span className="truncate">{ad.location}</span>
                   </span>
                 </div>
 
-                <div className="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block">الميزانية التقديرية</span>
+                <div className="p-2 rounded-xl bg-[#061530]/90 border border-white/15">
+                  <span className="text-[10px] text-slate-300 block">الميزانية التقديرية</span>
                   <span className="font-semibold text-amber-300 truncate block">{ad.budgetRange}</span>
                 </div>
 
-                <div className="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 block">مسطح البناء</span>
+                <div className="p-2 rounded-xl bg-[#061530]/90 border border-white/15">
+                  <span className="text-[10px] text-slate-300 block">مسطح البناء</span>
                   <span className="font-semibold text-white">{ad.projectArea} م²</span>
                 </div>
               </div>
             </div>
 
             {/* Footer author & actions */}
-            <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
+            <div className="pt-3 border-t border-white/15 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-900/40 border border-blue-500/30 flex items-center justify-center text-xs text-blue-200 font-bold">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow">
                   {ad.authorName.charAt(0)}
                 </div>
                 <div>
                   <span className="text-xs font-bold text-white block">{ad.authorName}</span>
-                  <span className="text-[10px] text-slate-400">صاحب الإعلان</span>
+                  <span className="text-[10px] text-slate-300">صاحب الإعلان</span>
                 </div>
               </div>
 
@@ -216,17 +231,25 @@ export const AdsBoard: React.FC<AdsBoardProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedAdDetail(ad)}
-                  className="px-3 py-2 rounded-xl silver-btn text-xs font-bold cursor-pointer"
+                  className="px-3 py-2 rounded-xl royal-card border border-white/20 text-slate-200 hover:text-white text-xs font-bold cursor-pointer"
                 >
                   التفاصيل
                 </button>
-                <a
-                  href={`tel:${ad.contactPhone}`}
-                  className="px-3.5 py-2 rounded-xl royal-gradient-btn text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      if (onRequireAuth) onRequireAuth(`مراسلة صاحب الإعلان "${ad.authorName}" عبر المنصة`);
+                    } else if (onStartPlatformChat) {
+                      onStartPlatformChat({ id: ad.id, name: ad.authorName, companyName: ad.title });
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl pure-white-btn text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow"
+                  title="تواصل حصري وآمن عبر المنصة فقط"
                 >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>تواصل</span>
-                </a>
+                  <MessageSquare className="w-3.5 h-3.5 text-[#071633]" />
+                  <span>مراسلة بالمنصة</span>
+                </button>
               </div>
             </div>
           </div>
@@ -270,20 +293,34 @@ export const AdsBoard: React.FC<AdsBoardProps> = ({
                   <span className="font-bold text-white">{selectedAdDetail.projectArea} متر مربع</span>
                 </div>
                 <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                  <span className="text-slate-400 block mb-0.5">رقم الاتصال المباشر</span>
-                  <span className="font-bold text-blue-300 font-mono">{selectedAdDetail.contactPhone}</span>
+                  <span className="text-slate-400 block mb-0.5">قناة التواصل المعتمدة</span>
+                  <span className="font-bold text-emerald-300 flex items-center gap-1 mt-0.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>مراسلة المنصة فقط</span>
+                  </span>
                 </div>
               </div>
             </div>
 
             <div className="flex gap-2 pt-2 border-t border-slate-800">
-              <a
-                href={`tel:${selectedAdDetail.contactPhone}`}
-                className="flex-1 py-2.5 rounded-xl royal-gradient-btn text-white text-xs font-bold flex items-center justify-center gap-2 shadow"
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user) {
+                    if (onRequireAuth) onRequireAuth(`مراسلة صاحب الإعلان "${selectedAdDetail.authorName}"`);
+                  } else {
+                    const target = selectedAdDetail;
+                    setSelectedAdDetail(null);
+                    if (onStartPlatformChat) {
+                      onStartPlatformChat({ id: target.id, name: target.authorName, companyName: target.title });
+                    }
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl pure-white-btn text-xs font-bold flex items-center justify-center gap-2 shadow"
               >
-                <Phone className="w-4 h-4" />
-                <span>الاتصال بصاحب الإعلان</span>
-              </a>
+                <MessageSquare className="w-4 h-4 text-[#071633]" />
+                <span>مراسلة وتفاوض آمن عبر المنصة فقط</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedAdDetail(null)}

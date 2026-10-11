@@ -22,6 +22,28 @@ export const initialContractors: Contractor[] = [
     licenseNumber: 'CR-10892341',
     classificationGrade: 'درجة أولى - مجلس المناقصات',
     avatarUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb1861593?w=500&auto=format&fit=crop&q=80',
+    reviews: [
+      {
+        id: 'rev-c1-1',
+        targetId: 'cont-1',
+        targetType: 'contractor',
+        userName: 'الشيخ حمود الهاشمي',
+        userRole: 'مالك فيلا سكنية - شاطئ القرم',
+        rating: 5,
+        comment: 'شركة راقية جداً في التعامل ودقة المواعيد. نفذوا الهيكل والتشطيب بأعلى جودة مع الالتزام التام بحديد التسليح وعوازل المياه.',
+        createdAt: 'منذ 3 أسابيع'
+      },
+      {
+        id: 'rev-c1-2',
+        targetId: 'cont-1',
+        targetType: 'contractor',
+        userName: 'م. سالم المعولي',
+        userRole: 'مشرف معماري',
+        rating: 5,
+        comment: 'الموقع منظم بشكل يومي، واستجابة المهندس فهد لأي ملاحظة هندسية كانت سريعة واحترافية. أنصح بالتعامل معهم بشدة.',
+        createdAt: 'منذ شهر'
+      }
+    ],
     portfolioImages: [
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&auto=format&fit=crop&q=80'
@@ -191,6 +213,18 @@ export const initialConsultants: Consultant[] = [
     consultationFeePerHour: 55, // in OMR
     accreditationBody: 'جمعية المهندسين العمانية - مهندس استشاري',
     avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=80',
+    reviews: [
+      {
+        id: 'rev-cs1-1',
+        targetId: 'cons-1',
+        targetType: 'consultant',
+        userName: 'المهندس طلال البوسعيدي',
+        userRole: 'مستثمر عقاري',
+        rating: 5,
+        comment: 'دار الرواحي صمموا لنا مجمع فلل راقي في الخوير. الإشراف الميداني كان دقيقاً وتفادوا أخطاء إنشائية وفرت علينا آلاف الريالات.',
+        createdAt: 'منذ أسبوعين'
+      }
+    ],
     portfolioImages: [
       'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&auto=format&fit=crop&q=80'

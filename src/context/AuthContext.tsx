@@ -10,6 +10,7 @@ export interface RegistrationData {
   phone: string;
   password?: string;
   city: string;
+  coordinates?: { lat: number; lng: number };
   // Contractor specific
   companyName?: string;
   classificationGrade?: string;
@@ -105,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'كلمة المرور الخاصة بحساب الإدارة غير صحيحة.' };
     }
 
-    // 2. Check locally saved registered users
+    // 2. Check locally saved registered users with strict password check
     const registeredListStr = localStorage.getItem('mihad_registered_users');
     if (registeredListStr) {
       try {
@@ -115,32 +116,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           u.name.toLowerCase() === cleanId
         );
         if (match) {
+          if (match.password && match.password !== cleanPass) {
+            return { success: false, message: 'كلمة المرور غير صحيحة لهذا الحساب المسجل.' };
+          }
           setUser(match);
-          return { success: true, role: match.role, message: `مرحباً بك، ${match.name}. تم تسجيل الدخول.` };
+          return { success: true, role: match.role, message: `مرحباً بك، ${match.name}. تم التحقق بنجاح.` };
         }
       } catch (e) {
         // Fallback
       }
     }
 
-    // 3. Regular User Login Fallback
-    let inferredRole: 'client' | 'contractor' | 'consultant' = 'client';
-    if (cleanId.includes('contractor') || cleanId.includes('مقا') || cleanId.includes('muqawil')) {
-      inferredRole = 'contractor';
-    } else if (cleanId.includes('consultant') || cleanId.includes('استشار') || cleanId.includes('eng')) {
-      inferredRole = 'consultant';
-    }
-
-    const regularUser: UserProfile = {
-      uid: `usr-${Date.now()}`,
-      name: cleanId.includes('@') ? cleanId.split('@')[0] : cleanId,
-      email: cleanId.includes('@') ? cleanId : `${cleanId}@mihad.sa`,
-      role: inferredRole,
-      phone: '+966 50 123 4567'
+    // 3. Strict Authorization: If not registered, reject login and require registration
+    return {
+      success: false,
+      message: 'هذا الحساب غير مسجل في المنصة. يرجى إنشاء حساب جديد أولاً لاختيار صفتك (عميل أو مقاول أو استشاري).'
     };
-
-    setUser(regularUser);
-    return { success: true, role: inferredRole, message: 'تم تسجيل الدخول بنجاح.' };
   };
 
   /**
@@ -162,6 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: data.email.trim().toLowerCase(),
         role: data.role,
         phone: data.phone,
+        password: data.password,
         companyName: data.companyName || data.officeName || undefined
       };
 
@@ -187,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           reviewsCount: 1,
           verified: true,
           location: data.city || 'مسقط',
-          coordinates: getCoordinatesForLocationText(data.city || 'مسقط'),
+          coordinates: data.coordinates || getCoordinatesForLocationText(data.city || 'مسقط'),
           experienceYears: 5,
           completedProjectsCount: 12,
           bio: `مؤسسة مقاولات معتمدة في ${data.city || 'مسقط'}. سجل تجاري رقم ${data.crNumber || 'CR-10892341'}.`,

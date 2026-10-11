@@ -16,12 +16,16 @@ import {
   Briefcase, 
   FileCheck,
   Building,
-  DollarSign
+  DollarSign,
+  Crosshair,
+  Navigation,
+  Map as MapIcon
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth, RegistrationData } from '../context/AuthContext';
 import { GlassIcon } from './GlassIcon';
 import { MihadLogo } from './MihadLogo';
+import { PRESET_LOCATIONS, getCoordinatesForLocationText } from '../lib/geoUtils';
 
 interface RegisterPageProps {
   onSuccess?: () => void;
@@ -51,6 +55,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   const [classificationGrade, setClassificationGrade] = useState('درجة ثانية');
   const [specialtyCategory, setSpecialtyCategory] = useState('general');
   const [startingPricePerMeter, setStartingPricePerMeter] = useState('140');
+  const [contractorCoords, setContractorCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isDetectingOfficeGps, setIsDetectingOfficeGps] = useState(false);
+  const [mapLocationStatus, setMapLocationStatus] = useState<string | null>(null);
 
   // Consultant Specific Fields
   const [officeName, setOfficeName] = useState('');
@@ -137,6 +144,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
       email: email.trim(),
       phone: phone.trim(),
       city,
+      coordinates: selectedRole === 'contractor' 
+        ? (contractorCoords || getCoordinatesForLocationText(city))
+        : getCoordinatesForLocationText(city),
       password,
       // Contractor
       companyName: selectedRole === 'contractor' ? companyName.trim() : undefined,
@@ -171,9 +181,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
+    <div className="max-w-4xl mx-auto py-2 sm:py-6 px-2 sm:px-6">
       {/* Header Banner */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-6 sm:mb-8">
         <div className="flex justify-center mb-4">
           <MihadLogo variant="full" size="lg" inverted />
         </div>
@@ -389,6 +399,94 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   onChange={(e) => setStartingPricePerMeter(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-xs focus:outline-none focus:border-amber-400"
                 />
+              </div>
+
+              {/* CONTRACTOR OFFICE MAP PLACEMENT TOOL */}
+              <div className="sm:col-span-2 p-4 rounded-xl bg-slate-900/90 border border-amber-500/40 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <MapIcon className="w-4 h-4 text-amber-400" />
+                    <div>
+                      <h5 className="text-xs font-bold text-white">تحديد موقع مكتب / شركة المقاولات على الخريطة</h5>
+                      <p className="text-[11px] text-slate-400">
+                        يسمح للعملاء في منطقتك بالعثور عليك على رادار الخريطة وطلب عروض التنفيذ
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!navigator.geolocation) {
+                        setMapLocationStatus('خاصية GPS غير مدعومة في متصفحك.');
+                        return;
+                      }
+                      setIsDetectingOfficeGps(true);
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setIsDetectingOfficeGps(false);
+                          const newCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                          setContractorCoords(newCoords);
+                          setMapLocationStatus(`تم تحديد موقع مكتبك بنجاح (${newCoords.lat.toFixed(4)}, ${newCoords.lng.toFixed(4)})`);
+                        },
+                        (err) => {
+                          setIsDetectingOfficeGps(false);
+                          const fallback = getCoordinatesForLocationText(city);
+                          setContractorCoords(fallback);
+                          setMapLocationStatus(`تم تعيين الإحداثيات لمركز مدينة "${city}" (${fallback.lat}, ${fallback.lng})`);
+                        },
+                        { timeout: 7000 }
+                      );
+                    }}
+                    disabled={isDetectingOfficeGps}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer self-start sm:self-auto transition-colors"
+                  >
+                    <Crosshair className={`w-3.5 h-3.5 ${isDetectingOfficeGps ? 'animate-spin' : ''}`} />
+                    <span>{isDetectingOfficeGps ? 'جارِ رصد GPS...' : 'تحديد موقع المقر عبر GPS الحقيقي'}</span>
+                  </button>
+                </div>
+
+                {mapLocationStatus && (
+                  <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[11px] flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>{mapLocationStatus}</span>
+                  </div>
+                )}
+
+                {/* Quick Map Pickers for Popular Construction Hubs */}
+                <div>
+                  <span className="text-[11px] text-slate-400 block mb-1.5">أو اختر مقرك الإنشائي السريع من المناطق المعتمدة:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRESET_LOCATIONS.slice(0, 8).map((loc, idx) => {
+                      const isSelected = contractorCoords?.lat === loc.lat && contractorCoords?.lng === loc.lng;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setContractorCoords({ lat: loc.lat, lng: loc.lng });
+                            setCity(loc.name.split('-')[0].trim());
+                            setMapLocationStatus(`تم تثبيت موقع مقر الشركة في: ${loc.name}`);
+                          }}
+                          className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-500 text-slate-950 font-bold border-amber-400'
+                              : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:border-slate-500'
+                          }`}
+                        >
+                          {loc.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {contractorCoords && (
+                  <div className="text-[11px] text-slate-400 bg-slate-950/70 p-2 rounded-lg border border-slate-800 flex items-center justify-between">
+                    <span>الإحداثيات المثبتة للشركة: <strong className="text-white font-mono">{contractorCoords.lat.toFixed(4)}, {contractorCoords.lng.toFixed(4)}</strong></span>
+                    <span className="text-emerald-400 font-bold">جاهز للظهور على خريطة المنصة ✓</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

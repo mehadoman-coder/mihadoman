@@ -19,14 +19,23 @@ import {
   Layers,
   CheckCircle,
   Database,
-  ArrowLeft
+  ArrowLeft,
+  Moon,
+  Sun,
+  Globe,
+  MapPin,
+  MessageSquare,
+  Bot
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { db, collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from './lib/firebase';
+import { db, collection, doc, setDoc, deleteDoc, onSnapshot } from './lib/firebase';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
+import { LogoProvider } from './context/LogoContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { LanguageProvider, useLanguage, LanguageCode } from './context/LanguageContext';
 import { CurrencySelector } from './components/CurrencySelector';
-import { Contractor, Consultant, Advertisement } from './types';
+import { Contractor, Consultant, Advertisement, Review } from './types';
 import { initialContractors, initialConsultants, initialAdvertisements } from './data/mockData';
 import { GlassIcon } from './components/GlassIcon';
 import { CostCalculator } from './components/CostCalculator';
@@ -37,6 +46,9 @@ import { AdminPanel } from './components/AdminPanel';
 import { AuthModal } from './components/AuthModal';
 import { MihadLogo } from './components/MihadLogo';
 import { RegisterPage } from './components/RegisterPage';
+import { ServiceProviderPortal } from './components/ServiceProviderPortal';
+import { PlatformChatModal } from './components/PlatformChatModal';
+import { OmanConstructionChatbot } from './components/OmanConstructionChatbot';
 import { getCoordinatesForLocationText } from './lib/geoUtils';
 
 function dedupeById<T extends { id: string }>(items: T[]): T[] {
@@ -53,26 +65,60 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 
 function MarketplaceApp() {
   const { user, isAdmin, logout } = useAuth();
+  const { theme, toggleTheme, isDark } = useTheme();
+  const { language, setLanguage, t, isRtl } = useLanguage();
 
   // Navigation View Tabs
-  const [activeTab, setActiveTab] = useState<'contractors' | 'consultants' | 'ads' | 'calculator' | 'register' | 'admin'>('contractors');
+  const [activeTab, setActiveTab] = useState<'contractors' | 'consultants' | 'ads' | 'calculator' | 'provider_portal' | 'register' | 'admin'>('contractors');
   
   // Mobile nav state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Auth modal
+  // Auth modal state & action protection prompt
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [actionPromptMessage, setActionPromptMessage] = useState<string | null>(null);
+
+  // In-platform chat modal state
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [activeChatTarget, setActiveChatTarget] = useState<any>(null);
 
   // State data for Firestore sync
   const [contractors, setContractors] = useState<Contractor[]>(() => dedupeById(initialContractors));
   const [consultants, setConsultants] = useState<Consultant[]>(() => dedupeById(initialConsultants));
   const [ads, setAds] = useState<Advertisement[]>(() => dedupeById(initialAdvertisements));
-  const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Require login to perform any action on the platform
+  const handleRequireAuth = (actionName: string) => {
+    setActionPromptMessage(actionName);
+    setIsAuthModalOpen(true);
+  };
+
+  // Start in-platform chat with contractor, consultant, or project owner
+  const handleStartPlatformChat = (target: any) => {
+    if (!user) {
+      handleRequireAuth(`مراسلة "${target.companyName || target.officeName || target.name}" عبر المنصة`);
+      return;
+    }
+
+    const isConsultant = !!target.specialty || !!target.officeName;
+    setActiveChatTarget({
+      id: target.id,
+      name: target.name || target.companyName || target.officeName || 'مقدم الخدمة',
+      companyName: target.companyName || target.officeName || target.name || 'المنشأة المعتمدة',
+      role: isConsultant ? 'consultant' : 'contractor',
+      location: target.location || 'سلطنة عُمان',
+      rating: target.rating || 5.0,
+      verified: target.verified ?? true,
+      licenseNumber: target.licenseNumber,
+      startingPrice: target.startingPricePerMeter || target.consultationFeePerHour
+    });
+    setIsChatModalOpen(true);
   };
 
   // Firebase Realtime Listeners & Seeding
@@ -148,18 +194,23 @@ function MarketplaceApp() {
 
   // CRUD Handler for Advertisements
   const handleAddAd = async (newAdData: Partial<Advertisement>) => {
+    if (!user) {
+      handleRequireAuth('نشر إعلان أو مشروع في لوحة المناقصات');
+      return;
+    }
+
     const id = `ad-${Date.now()}`;
     const newAd: Advertisement = {
       id,
-      title: newAdData.title || 'إعلان جديد',
+      title: newAdData.title || 'طلب مشروع إنشائي جديد',
       description: newAdData.description || '',
       category: newAdData.category || 'residential',
-      location: newAdData.location || 'الرياض',
+      location: newAdData.location || 'مسقط',
       budgetRange: newAdData.budgetRange || 'حسب الاتفاق',
       projectArea: newAdData.projectArea || 500,
       authorName: user?.name || newAdData.authorName || 'عميل المنصة',
       authorType: user?.role || newAdData.authorType || 'client',
-      contactPhone: newAdData.contactPhone || user?.phone || '+966 50 000 0000',
+      contactPhone: newAdData.contactPhone || user?.phone || '+968 9000 0000',
       status: 'active',
       urgency: 'high',
       featured: false,
@@ -170,11 +221,11 @@ function MarketplaceApp() {
     try {
       await setDoc(doc(db, 'advertisements', id), newAd);
       setAds(prev => dedupeById([newAd, ...prev]));
-      showToast('تم نشر الإعلان بنجاح في المنصة ولوحة المشاريع!');
+      showToast('تم نشر مشروعك بنجاح في المنصة وتحديثه للمقاولين!');
       confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
     } catch (e: any) {
       setAds(prev => dedupeById([newAd, ...prev]));
-      showToast('تم حفظ الإعلان محلياً وبنجاح!');
+      showToast('تم حفظ الإعلان بنجاح!');
     }
   };
 
@@ -182,7 +233,7 @@ function MarketplaceApp() {
     try {
       await deleteDoc(doc(db, 'advertisements', id));
       setAds(prev => prev.filter(a => a.id !== id));
-      showToast('تم حذف الإعلان بنجاح من قاعدة البيانات.');
+      showToast('تم حذف الإعلان بنجاح.');
     } catch (e: any) {
       setAds(prev => prev.filter(a => a.id !== id));
       showToast('تم حذف الإعلان محلياً.');
@@ -282,88 +333,187 @@ function MarketplaceApp() {
     }
   };
 
+  // Add Review handler for both contractors and consultants
+  const handleAddReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>) => {
+    if (!user) {
+      handleRequireAuth('إضافة تقييم وتقييم تجربة الخدمة');
+      return;
+    }
+
+    const revId = `rev-${Date.now()}`;
+    const newReview: Review = {
+      ...reviewData,
+      id: revId,
+      userName: user?.name || reviewData.userName || 'عميل معتمد',
+      createdAt: 'الآن'
+    };
+
+    if (reviewData.targetType === 'contractor') {
+      setContractors(prev => prev.map(c => {
+        if (c.id === reviewData.targetId) {
+          const currentReviews = c.reviews || [];
+          const updatedReviews = [newReview, ...currentReviews];
+          const newAvg = Number(
+            (updatedReviews.reduce((sum, r) => sum + r.rating, 0) / updatedReviews.length).toFixed(1)
+          );
+          const updatedContractor = {
+            ...c,
+            reviews: updatedReviews,
+            reviewsCount: updatedReviews.length,
+            rating: newAvg
+          };
+          setDoc(doc(db, 'contractors', c.id), updatedContractor).catch(() => {});
+          return updatedContractor;
+        }
+        return c;
+      }));
+      showToast('تمت إضافة تقييمك لشركة المقاولات بنجاح!');
+      confetti({ particleCount: 45, spread: 60, origin: { y: 0.8 } });
+    } else {
+      setConsultants(prev => prev.map(c => {
+        if (c.id === reviewData.targetId) {
+          const currentReviews = c.reviews || [];
+          const updatedReviews = [newReview, ...currentReviews];
+          const newAvg = Number(
+            (updatedReviews.reduce((sum, r) => sum + r.rating, 0) / updatedReviews.length).toFixed(1)
+          );
+          const updatedConsultant = {
+            ...c,
+            reviews: updatedReviews,
+            reviewsCount: updatedReviews.length,
+            rating: newAvg
+          };
+          setDoc(doc(db, 'consultants', c.id), updatedConsultant).catch(() => {});
+          return updatedConsultant;
+        }
+        return c;
+      }));
+      showToast('تمت إضافة تقييمك للمكتب الاستشاري بنجاح!');
+      confetti({ particleCount: 45, spread: 60, origin: { y: 0.8 } });
+    }
+  };
+
+  // Update Contractor Office Location on Map (Exclusively via ServiceProviderPortal)
+  const handleUpdateContractorLocation = async (contractorId: string, coordinates: { lat: number; lng: number }, locationText: string) => {
+    setContractors(prev => prev.map(c => {
+      if (c.id === contractorId) {
+        const updated = { ...c, coordinates, location: locationText };
+        setDoc(doc(db, 'contractors', c.id), updated).catch(() => {});
+        return updated;
+      }
+      return c;
+    }));
+    showToast(`تم تثبيت موقع مقر المنشأة (${locationText}) بنجاح على الخريطة والرادار!`);
+    confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
+  };
+
   return (
-    <div className="min-h-screen bg-[#070e1f] text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white relative">
+    <div className={`min-h-screen flex flex-col selection:bg-blue-600 selection:text-white relative transition-colors duration-200 ${
+      isDark ? 'royal-navy-bg text-slate-100' : 'bg-[#f4f7fb] text-slate-900'
+    }`} dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Toast Notification */}
       {notification && (
-        <div className="fixed bottom-6 right-6 z-50 glass-card px-5 py-3 rounded-2xl border border-blue-400 text-white shadow-2xl flex items-center gap-3 animate-bounce">
-          <CheckCircle className="w-5 h-5 text-blue-400 shrink-0" />
+        <div className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-50 glass-card px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-white/30 text-white shadow-2xl flex items-center gap-2.5 sm:gap-3 animate-bounce">
+          <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
           <span className="text-xs md:text-sm font-bold">{notification}</span>
         </div>
       )}
 
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-40 bg-[#0a1428]/90 backdrop-blur-xl border-b border-slate-700/60 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+      {/* Top Navbar with Royal Navy & Crisp White Aesthetics */}
+      <header className={`sticky top-0 z-40 backdrop-blur-xl border-b shadow-xl transition-colors duration-200 ${
+        isDark ? 'bg-[#081836]/95 border-white/15' : 'bg-white/95 border-slate-200 shadow-slate-200/50'
+      }`}>
+        <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-8 h-16 md:h-20 flex items-center justify-between gap-2 sm:gap-4">
           {/* Brand Logo - MIHAD */}
           <div 
             onClick={() => setActiveTab('contractors')}
-            className="flex items-center cursor-pointer group"
+            className="flex items-center cursor-pointer group shrink-0"
           >
-            <MihadLogo variant="horizontal" size="md" inverted />
+            <MihadLogo variant="horizontal" size="sm" inverted={isDark} />
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1.5 p-1.5 rounded-2xl glass-card border border-slate-700/70">
+          <nav className={`hidden lg:flex items-center gap-1.5 p-1.5 rounded-2xl border ${
+            isDark ? 'glass-card border-white/15' : 'bg-slate-100 border-slate-300'
+          }`}>
             <button
               type="button"
               onClick={() => setActiveTab('contractors')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'contractors'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  : isDark ? 'text-slate-200 hover:text-white hover:bg-white/10' : 'text-slate-700 hover:text-blue-900 hover:bg-slate-200'
               }`}
             >
-              <HardHat className="w-4 h-4 text-amber-300" />
-              <span>المقاولون ({contractors.length})</span>
+              <HardHat className="w-4 h-4 text-amber-400" />
+              <span>{t('contractors')} ({contractors.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('consultants')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'consultants'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  : isDark ? 'text-slate-200 hover:text-white hover:bg-white/10' : 'text-slate-700 hover:text-blue-900 hover:bg-slate-200'
               }`}
             >
-              <Compass className="w-4 h-4 text-blue-300" />
-              <span>الاستشاريون ({consultants.length})</span>
+              <Compass className="w-4 h-4 text-blue-400" />
+              <span>{t('consultants')} ({consultants.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('ads')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'ads'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  : isDark ? 'text-slate-200 hover:text-white hover:bg-white/10' : 'text-slate-700 hover:text-blue-900 hover:bg-slate-200'
               }`}
             >
-              <FileText className="w-4 h-4 text-emerald-300" />
-              <span>لوحة الإعلانات والمناقصات</span>
+              <FileText className="w-4 h-4 text-emerald-400" />
+              <span>{t('tenders')} ({ads.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('calculator')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'calculator'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  : isDark ? 'text-slate-200 hover:text-white hover:bg-white/10' : 'text-slate-700 hover:text-blue-900 hover:bg-slate-200'
               }`}
             >
-              <Calculator className="w-4 h-4 text-yellow-300" />
-              <span>حاسبة تكاليف البناء</span>
+              <Calculator className="w-4 h-4 text-yellow-400" />
+              <span>{t('calculator')}</span>
+            </button>
+
+            {/* Dedicated Service Provider Portal Tab (The ONLY place where provider specifies their location) */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('provider_portal')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'provider_portal'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-900/50 ring-1 ring-amber-300'
+                  : isDark 
+                    ? 'text-amber-300 hover:text-white hover:bg-amber-950/40 border border-amber-500/30' 
+                    : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300'
+              }`}
+              title="صفحة مقدم الخدمة - تحديد موقع المقر على الخريطة واستقبال طلبات المنصة"
+            >
+              <MapPin className="w-4 h-4 text-amber-400" />
+              <span>صفحة مقدم الخدمة (الموقع)</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('register')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'register'
                   ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/50'
-                  : 'text-emerald-300 hover:text-white hover:bg-emerald-950/40 border border-emerald-500/30'
+                  : isDark
+                    ? 'text-emerald-300 hover:text-white hover:bg-emerald-950/40 border border-emerald-500/30'
+                    : 'text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300'
               }`}
             >
               <UserCheck className="w-4 h-4 text-emerald-400" />
@@ -375,7 +525,7 @@ function MarketplaceApp() {
               <button
                 type="button"
                 onClick={() => setActiveTab('admin')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === 'admin'
                     ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white shadow-lg'
                     : 'text-amber-300 hover:text-amber-200 hover:bg-amber-950/40 border border-amber-500/30'
@@ -387,52 +537,124 @@ function MarketplaceApp() {
             )}
           </nav>
 
-          {/* Right Action Bar (User Profile, Currency Selector & Login Button) */}
-          <div className="flex items-center gap-2.5">
+          {/* Right Action Bar (Day/Night mode, Language Switcher, Currency & Auth) */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Day / Night Theme Switcher */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className={`p-2 rounded-xl border cursor-pointer transition-all flex items-center gap-1 text-xs font-bold ${
+                isDark 
+                  ? 'bg-white/10 hover:bg-white/20 border-white/20 text-yellow-300' 
+                  : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
+              }`}
+              title={isDark ? 'التحويل للوضع الصباحي' : 'التحويل للوضع الليلي'}
+            >
+              {isDark ? <Sun className="w-4 h-4 text-yellow-300" /> : <Moon className="w-4 h-4 text-blue-900" />}
+              <span className="hidden md:inline text-[11px]">{isDark ? 'صباحي' : 'ليلي'}</span>
+            </button>
+
+            {/* Language Selector Dropdown */}
+            <div className="relative group">
+              <button
+                type="button"
+                className={`p-2 rounded-xl border cursor-pointer transition-all flex items-center gap-1 text-xs font-bold ${
+                  isDark
+                    ? 'bg-white/10 hover:bg-white/20 border-white/20 text-slate-200'
+                    : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
+                }`}
+              >
+                <Globe className="w-4 h-4 text-blue-400" />
+                <span className="text-[11px] uppercase font-bold">{language}</span>
+              </button>
+              <div className={`absolute top-full left-0 mt-1 hidden group-hover:block p-1 rounded-xl shadow-2xl border text-xs z-50 min-w-[120px] ${
+                isDark ? 'bg-[#081836] border-white/20 text-white' : 'bg-white border-slate-200 text-slate-900'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setLanguage('ar')}
+                  className={`w-full text-right px-3 py-1.5 rounded-lg flex items-center justify-between ${
+                    language === 'ar' ? 'bg-blue-600 text-white font-bold' : 'hover:bg-slate-500/20'
+                  }`}
+                >
+                  <span>العربية 🇴🇲</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLanguage('en')}
+                  className={`w-full text-right px-3 py-1.5 rounded-lg flex items-center justify-between ${
+                    language === 'en' ? 'bg-blue-600 text-white font-bold' : 'hover:bg-slate-500/20'
+                  }`}
+                >
+                  <span>English 🇬🇧</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLanguage('ur')}
+                  className={`w-full text-right px-3 py-1.5 rounded-lg flex items-center justify-between ${
+                    language === 'ur' ? 'bg-blue-600 text-white font-bold' : 'hover:bg-slate-500/20'
+                  }`}
+                >
+                  <span>اردو 🇵🇰</span>
+                </button>
+              </div>
+            </div>
+
             {/* Currency Selector */}
-            <CurrencySelector />
+            <div className="hidden xs:block">
+              <CurrencySelector />
+            </div>
 
             {user ? (
-              <div className="flex items-center gap-3 p-1.5 px-3 rounded-2xl glass-card border border-slate-700/80">
+              <div className={`flex items-center gap-1.5 sm:gap-2.5 p-1 sm:p-1.5 px-2 sm:px-3 rounded-2xl border ${
+                isDark ? 'royal-card border-white/20' : 'bg-slate-100 border-slate-300'
+              }`}>
                 <div className="text-right">
-                  <div className="flex items-center gap-1.5 justify-end">
+                  <div className="flex items-center gap-1 sm:gap-1.5 justify-end">
                     {isAdmin && <Shield className="w-3.5 h-3.5 text-amber-400" />}
-                    <span className="text-xs font-bold text-white truncate max-w-[140px]">{user.name}</span>
+                    <span className={`text-[11px] sm:text-xs font-bold truncate max-w-[80px] sm:max-w-[130px] ${
+                      isDark ? 'text-white' : 'text-slate-900'
+                    }`}>{user.name}</span>
                   </div>
-                  <span className={`block text-[10px] font-semibold ${isAdmin ? 'text-amber-300' : 'text-blue-300'}`}>
-                    {isAdmin ? 'صاحب المنصة - إدارة عامة' : user.role === 'contractor' ? 'مقاول معتمد' : user.role === 'consultant' ? 'مكتب استشاري' : 'عميل المنصة'}
+                  <span className={`block text-[9px] sm:text-[10px] font-semibold ${isAdmin ? 'text-amber-400' : 'text-blue-400'}`}>
+                    {isAdmin ? 'رئيس المنصة' : user.role === 'contractor' ? 'مقاول معتمد' : user.role === 'consultant' ? 'مكتب استشاري' : 'عميل'}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={logout}
-                  className="p-2 rounded-xl bg-red-950/40 border border-red-800/50 text-red-300 hover:bg-red-900/60 hover:text-white cursor-pointer transition-colors"
+                  className="p-1.5 sm:p-2 rounded-xl bg-red-950/40 border border-red-800/50 text-red-300 hover:bg-red-900/60 hover:text-white cursor-pointer transition-colors"
                   title="تسجيل الخروج"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveTab('register')}
-                  className={`hidden sm:flex px-3.5 py-2 rounded-xl text-xs font-bold items-center gap-1.5 cursor-pointer transition-all border ${
+                  className={`hidden sm:flex px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold items-center gap-1.5 cursor-pointer transition-all border ${
                     activeTab === 'register'
                       ? 'bg-emerald-600 border-emerald-500 text-white'
-                      : 'glass-card border-slate-700 text-slate-200 hover:text-white hover:border-slate-500'
+                      : isDark
+                        ? 'royal-card border-white/20 text-slate-200 hover:text-white hover:border-white/40'
+                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>إنشاء حساب</span>
+                  <span>حساب جديد</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="px-4 py-2 rounded-xl royal-gradient-btn text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg hover:shadow-blue-600/30 transition-all"
+                  onClick={() => {
+                    setActionPromptMessage(null);
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl pure-white-btn text-xs font-bold flex items-center gap-1 sm:gap-1.5 cursor-pointer shadow-lg hover:shadow-white/20 transition-all shrink-0"
                 >
-                  <LogIn className="w-4 h-4" />
-                  <span>تسجيل الدخول</span>
+                  <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#071633]" />
+                  <span className="text-[#071633]">دخول</span>
                 </button>
               </div>
             )}
@@ -441,7 +663,9 @@ function MarketplaceApp() {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2.5 rounded-xl glass-icon-btn text-white cursor-pointer"
+              className={`lg:hidden p-2 sm:p-2.5 rounded-xl cursor-pointer border ${
+                isDark ? 'royal-card text-white border-white/30' : 'bg-slate-100 text-slate-800 border-slate-300'
+              }`}
               aria-label="القائمة"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -451,90 +675,165 @@ function MarketplaceApp() {
 
         {/* Mobile menu dropdown */}
         {mobileMenuOpen && (
-          <div className="lg:hidden p-4 bg-slate-900/95 border-b border-slate-800 space-y-2">
+          <div className={`lg:hidden p-3 sm:p-4 border-b space-y-2 animate-fade-in shadow-2xl ${
+            isDark ? 'bg-[#081836]/98 backdrop-blur-2xl border-white/20' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <span className={`text-xs font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>عملة الأسعار:</span>
+              <CurrencySelector compact />
+            </div>
+
             <button
               type="button"
               onClick={() => { setActiveTab('contractors'); setMobileMenuOpen(false); }}
-              className={`w-full p-3 rounded-xl text-sm font-bold flex items-center gap-3 ${
-                activeTab === 'contractors' ? 'bg-blue-600 text-white' : 'text-slate-300'
+              className={`w-full p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-between ${
+                activeTab === 'contractors' ? 'bg-blue-600 text-white' : isDark ? 'text-slate-200 hover:bg-white/10' : 'text-slate-800 hover:bg-slate-100'
               }`}
             >
-              <HardHat className="w-5 h-5 text-amber-400" />
-              <span>سوق المقاولين</span>
+              <div className="flex items-center gap-3">
+                <HardHat className="w-5 h-5 text-amber-400" />
+                <span>سوق شركات ومؤسسات المقاولين</span>
+              </div>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">
+                {contractors.length}
+              </span>
             </button>
+
             <button
               type="button"
               onClick={() => { setActiveTab('consultants'); setMobileMenuOpen(false); }}
-              className={`w-full p-3 rounded-xl text-sm font-bold flex items-center gap-3 ${
-                activeTab === 'consultants' ? 'bg-blue-600 text-white' : 'text-slate-300'
+              className={`w-full p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-between ${
+                activeTab === 'consultants' ? 'bg-blue-600 text-white' : isDark ? 'text-slate-200 hover:bg-white/10' : 'text-slate-800 hover:bg-slate-100'
               }`}
             >
-              <Compass className="w-5 h-5 text-blue-300" />
-              <span>المكاتب الاستشارية</span>
+              <div className="flex items-center gap-3">
+                <Compass className="w-5 h-5 text-blue-300" />
+                <span>المكاتب الهندسية والاستشارية</span>
+              </div>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">
+                {consultants.length}
+              </span>
             </button>
+
             <button
               type="button"
               onClick={() => { setActiveTab('ads'); setMobileMenuOpen(false); }}
-              className={`w-full p-3 rounded-xl text-sm font-bold flex items-center gap-3 ${
-                activeTab === 'ads' ? 'bg-blue-600 text-white' : 'text-slate-300'
+              className={`w-full p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-between ${
+                activeTab === 'ads' ? 'bg-blue-600 text-white' : isDark ? 'text-slate-200 hover:bg-white/10' : 'text-slate-800 hover:bg-slate-100'
               }`}
             >
-              <FileText className="w-5 h-5 text-emerald-400" />
-              <span>لوحة الإعلانات والمناقصات</span>
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-emerald-400" />
+                <span>لوحة الإعلانات والمناقصات</span>
+              </div>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">
+                {ads.length}
+              </span>
             </button>
+
             <button
               type="button"
               onClick={() => { setActiveTab('calculator'); setMobileMenuOpen(false); }}
-              className={`w-full p-3 rounded-xl text-sm font-bold flex items-center gap-3 ${
-                activeTab === 'calculator' ? 'bg-blue-600 text-white' : 'text-slate-300'
+              className={`w-full p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-3 ${
+                activeTab === 'calculator' ? 'bg-blue-600 text-white' : isDark ? 'text-slate-200 hover:bg-white/10' : 'text-slate-800 hover:bg-slate-100'
               }`}
             >
               <Calculator className="w-5 h-5 text-yellow-400" />
-              <span>حاسبة تكاليف البناء</span>
+              <span>حاسبة تكاليف البناء المعتمدة</span>
             </button>
+
+            {/* Service Provider Mobile Link */}
+            <button
+              type="button"
+              onClick={() => { setActiveTab('provider_portal'); setMobileMenuOpen(false); }}
+              className={`w-full p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-3 ${
+                activeTab === 'provider_portal' ? 'bg-amber-600 text-white' : 'text-amber-400 hover:bg-amber-950/20'
+              }`}
+            >
+              <MapPin className="w-5 h-5 text-amber-400" />
+              <span>صفحة مقدم الخدمة (تحديد وتعديل الموقع)</span>
+            </button>
+
             <button
               type="button"
               onClick={() => { setActiveTab('register'); setMobileMenuOpen(false); }}
-              className={`w-full p-3 rounded-xl text-sm font-bold flex items-center gap-3 ${
-                activeTab === 'register' ? 'bg-emerald-600 text-white' : 'text-emerald-300'
+              className={`w-full p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-3 ${
+                activeTab === 'register' ? 'bg-emerald-600 text-white' : 'text-emerald-400 hover:bg-white/10'
               }`}
             >
               <UserCheck className="w-5 h-5 text-emerald-400" />
               <span>إنشاء حساب جديد (مقاول / عميل / استشاري)</span>
             </button>
+
             {isAdmin && (
               <button
                 type="button"
                 onClick={() => { setActiveTab('admin'); setMobileMenuOpen(false); }}
-                className={`w-full p-3 rounded-xl text-sm font-bold flex items-center gap-3 ${
-                  activeTab === 'admin' ? 'bg-amber-600 text-white' : 'text-amber-300'
+                className={`w-full p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-3 ${
+                  activeTab === 'admin' ? 'bg-amber-600 text-white' : 'text-amber-300 hover:bg-white/10'
                 }`}
               >
                 <Shield className="w-5 h-5" />
-                <span>لوحة تحكم رئيس المنصة</span>
+                <span>لوحة تحكم رئيس المنصة (الإدارة وتغيير الشعار)</span>
               </button>
             )}
           </div>
         )}
+
+        {/* Seamless Interactive Zero-Void Status Ticker Ribbon */}
+        <div className={`w-full border-t py-1.5 px-3 sm:px-6 overflow-x-auto no-scrollbar ${
+          isDark 
+            ? 'bg-gradient-to-r from-[#071733] via-[#0d2857] to-[#071733] border-white/10' 
+            : 'bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 text-white border-blue-800'
+        }`}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 text-[11px] whitespace-nowrap font-bold text-slate-200">
+            <div className="flex items-center gap-2 text-white">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-blue-200">منظومة مِهَاد المعتمدة بسلطنة عُمان</span>
+            </div>
+
+            <div className="flex items-center gap-4 sm:gap-6 text-slate-300">
+              <span className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer" onClick={() => setActiveTab('contractors')}>
+                <HardHat className="w-3.5 h-3.5 text-amber-400" />
+                <span>{contractors.length} مقاول معتمد</span>
+              </span>
+              <span className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer" onClick={() => setActiveTab('consultants')}>
+                <Compass className="w-3.5 h-3.5 text-blue-300" />
+                <span>{consultants.length} مكتب استشاري</span>
+              </span>
+              <span className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer" onClick={() => setActiveTab('ads')}>
+                <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{ads.length} مناقصة ومشروع</span>
+              </span>
+              <span className="hidden md:flex items-center gap-1.5 text-white">
+                <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                <span>تواصل حصري ومحمي عبر المنصة فقط</span>
+              </span>
+            </div>
+          </div>
+        </div>
       </header>
 
       {/* Main Page Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-5 lg:px-8 py-4 sm:py-6 md:py-8 pb-24 lg:pb-12">
         {activeTab === 'contractors' && (
           <ContractorsList
             contractors={dedupeById(contractors)}
-            onRequestQuote={(c) => {
-              showToast(`تم فتح قناة تواصل مع شركة "${c.companyName}"`);
-            }}
+            onStartPlatformChat={handleStartPlatformChat}
+            onRequireAuth={handleRequireAuth}
+            onRequestQuote={(c) => handleStartPlatformChat(c)}
+            onAddReview={handleAddReview}
+            onUpdateContractorLocation={handleUpdateContractorLocation}
           />
         )}
 
         {activeTab === 'consultants' && (
           <ConsultantsList
             consultants={dedupeById(consultants)}
-            onRequestConsultation={(cons) => {
-              showToast(`تم إرسال طلب استشارة لـ "${cons.officeName}"`);
-            }}
+            onStartPlatformChat={handleStartPlatformChat}
+            onRequireAuth={handleRequireAuth}
+            onRequestConsultation={(cons) => handleStartPlatformChat(cons)}
+            onAddReview={handleAddReview}
           />
         )}
 
@@ -542,6 +841,8 @@ function MarketplaceApp() {
           <AdsBoard
             ads={dedupeById(ads)}
             onAddAd={handleAddAd}
+            onRequireAuth={handleRequireAuth}
+            onStartPlatformChat={handleStartPlatformChat}
           />
         )}
 
@@ -552,13 +853,26 @@ function MarketplaceApp() {
           />
         )}
 
+        {/* Dedicated Service Provider Portal - The Only Place Provider Sets Their Location */}
+        {activeTab === 'provider_portal' && (
+          <ServiceProviderPortal
+            contractors={dedupeById(contractors)}
+            consultants={dedupeById(consultants)}
+            onUpdateLocation={handleUpdateContractorLocation}
+            onOpenChatWithProvider={handleStartPlatformChat}
+          />
+        )}
+
         {activeTab === 'register' && (
           <RegisterPage
             onSuccess={() => {
               setActiveTab('contractors');
               showToast('تم إنشاء الحساب بنجاح، ومرحباً بك في منصة مِهاد!');
             }}
-            onSwitchToLogin={() => setIsAuthModalOpen(true)}
+            onSwitchToLogin={() => {
+              setActionPromptMessage(null);
+              setIsAuthModalOpen(true);
+            }}
           />
         )}
 
@@ -578,7 +892,9 @@ function MarketplaceApp() {
       </main>
 
       {/* Luxury Footer */}
-      <footer className="bg-[#050b17] border-t border-slate-800/80 pt-12 pb-8 text-slate-400 text-xs">
+      <footer className={`border-t pt-12 pb-8 text-xs transition-colors duration-200 ${
+        isDark ? 'bg-[#050b17] border-slate-800/80 text-slate-400' : 'bg-slate-900 border-slate-800 text-slate-400'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="space-y-3">
@@ -586,7 +902,7 @@ function MarketplaceApp() {
                 <MihadLogo variant="horizontal" size="sm" inverted />
               </div>
               <p className="text-slate-400 leading-relaxed text-xs">
-                المنصة الرائدة لقطاع المقاولات والإنشاءات في سلطنة عُمان ودول الخليج العربي. نربط أصحاب المشاريع بنخبة المقاولين والمكاتب الهندسية المعتمدة لضمان أعلى مستويات الإتقان والسلامة.
+                المنصة الرائدة لقطاع المقاولات والإنشاءات في سلطنة عُمان. نربط أصحاب المشاريع بنخبة المقاولين والمكاتب الهندسية المعتمدة لضمان أعلى مستويات الإتقان والسلامة.
               </p>
             </div>
 
@@ -597,6 +913,7 @@ function MarketplaceApp() {
                 <li><button onClick={() => setActiveTab('consultants')} className="hover:text-blue-300 cursor-pointer">المكاتب الاستشارية والهندسية</button></li>
                 <li><button onClick={() => setActiveTab('ads')} className="hover:text-blue-300 cursor-pointer">لوحة الإعلانات والمناقصات</button></li>
                 <li><button onClick={() => setActiveTab('calculator')} className="hover:text-blue-300 cursor-pointer">حاسبة تكاليف البناء المعتمدة</button></li>
+                <li><button onClick={() => setActiveTab('provider_portal')} className="hover:text-amber-300 text-amber-400 cursor-pointer">صفحة مقدم الخدمة وتحديد الموقع</button></li>
                 <li><button onClick={() => setActiveTab('register')} className="hover:text-emerald-300 text-emerald-400 cursor-pointer">إنشاء حساب (مقاول / عميل / استشاري)</button></li>
               </ul>
             </div>
@@ -604,27 +921,27 @@ function MarketplaceApp() {
             <div>
               <h4 className="text-sm font-bold text-white mb-3">حوكمة وموثوقية</h4>
               <ul className="space-y-2">
-                <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-blue-400" /> مطابقة المواصفات الإنشائية القياسية</li>
+                <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-blue-400" /> مطابقة المواصفات الإنشائية القياسية العُمانية</li>
                 <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-blue-400" /> اعتمادات المكاتب الهندسية والاستشارية المعتمدة</li>
                 <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-blue-400" /> تصنيف مقدمي الخدمة المعتمد في عُمان (مجلس المناقصات)</li>
-                <li className="flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-emerald-400" /> نظام حماية وتشفير متقدم لكافة الصفقات</li>
+                <li className="flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-emerald-400" /> تواصل وتفاوض حصري عبر المنصة لحماية الحقوق</li>
               </ul>
             </div>
 
             <div>
               <h4 className="text-sm font-bold text-white mb-3">الأمان والخصوصية</h4>
               <p className="text-slate-400 text-xs leading-relaxed mb-3">
-                تلتزم منصة مِهاد بأعلى معايير حماية البيانات وسرية التعاملات والمناقصات لكافة المقاولين والمكاتب الاستشارية وأصحاب المشاريع.
+                تلتزم منصة مِهاد بأعلى معايير حماية البيانات وسرية التعاملات والمناقصات لكافة المقاولين والمكاتب الاستشارية وأصحاب المشاريع عبر نظام تواصل مشفر بالكامل.
               </p>
-              <div className="flex items-center gap-2 text-slate-300 text-xs bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                <Shield className="w-4 h-4 text-blue-400 shrink-0" />
-                <span>نظام حماية وسرية متقدم</span>
+              <div className="flex items-center gap-2 text-slate-300 text-xs bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
+                <Shield className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>نظام حماية وتواصل موثق ومحمي</span>
               </div>
             </div>
           </div>
 
           <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400">
-            <p>© 2026 منصة مِهَاد (MIHAD) لسوق المقاولات والإنشاءات. جميع الحقوق محفوظة.</p>
+            <p>© 2026 منصة مِهَاد (MIHAD) لسوق المقاولات والإنشاءات بسلطنة عُمان. جميع الحقوق محفوظة.</p>
             <p className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
               <span>خوادم المنصة وقواعد البيانات تعمل بأعلى كفاءة وأمان مشفر</span>
@@ -633,12 +950,145 @@ function MarketplaceApp() {
         </div>
       </footer>
 
-      {/* Auth Modal */}
+      {/* Fixed Mobile Bottom Navigation Bar (Ultra-responsive on all phone screens) */}
+      <nav 
+        aria-label="التنقل السريع للهواتف" 
+        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 backdrop-blur-2xl border-t px-2 py-1.5 flex items-center justify-around shadow-[0_-8px_30px_rgba(0,0,0,0.5)] ${
+          isDark ? 'bg-[#071633]/96 border-white/20' : 'bg-white/95 border-slate-300 shadow-slate-300/60'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('contractors')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+            activeTab === 'contractors'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-900/60 font-bold scale-105'
+              : isDark ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-blue-900'
+          }`}
+        >
+          <HardHat className="w-4 h-4 mb-0.5 text-amber-400" />
+          <span className="text-[10px]">المقاولون</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('consultants')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+            activeTab === 'consultants'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-900/60 font-bold scale-105'
+              : isDark ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-blue-900'
+          }`}
+        >
+          <Compass className="w-4 h-4 mb-0.5 text-blue-400" />
+          <span className="text-[10px]">الاستشاريون</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('ads')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+            activeTab === 'ads'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-900/60 font-bold scale-105'
+              : isDark ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-blue-900'
+          }`}
+        >
+          <FileText className="w-4 h-4 mb-0.5 text-emerald-400" />
+          <span className="text-[10px]">المناقصات</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('provider_portal')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+            activeTab === 'provider_portal'
+              ? 'bg-amber-600 text-white shadow-md shadow-amber-900/60 font-bold scale-105'
+              : isDark ? 'text-amber-400 hover:text-white' : 'text-amber-700 hover:text-amber-900'
+          }`}
+        >
+          <MapPin className="w-4 h-4 mb-0.5 text-amber-400" />
+          <span className="text-[10px]">مقدم الخدمة</span>
+        </button>
+
+        {isAdmin ? (
+          <button
+            type="button"
+            onClick={() => setActiveTab('admin')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'admin'
+                ? 'bg-amber-600 text-white shadow-md font-bold scale-105'
+                : 'text-amber-400 hover:text-amber-200'
+            }`}
+          >
+            <Shield className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px]">الإدارة</span>
+          </button>
+        ) : user ? (
+          <button
+            type="button"
+            onClick={() => setActiveTab('register')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'register'
+                ? 'bg-emerald-600 text-white shadow-md font-bold scale-105'
+                : 'text-emerald-400 hover:text-white'
+            }`}
+          >
+            <UserCheck className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px]">حسابي</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setActionPromptMessage(null);
+              setIsAuthModalOpen(true);
+            }}
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-slate-400 hover:text-white transition-all cursor-pointer"
+          >
+            <LogIn className="w-4 h-4 mb-0.5 text-blue-400" />
+            <span className="text-[10px]">دخول</span>
+          </button>
+        )}
+      </nav>
+
+      {/* In-Platform Protected Chat Modal (Exclusive Communication Channel) */}
+      <PlatformChatModal
+        isOpen={isChatModalOpen}
+        onClose={() => setIsChatModalOpen(false)}
+        targetProvider={activeChatTarget}
+        onRequireAuth={() => handleRequireAuth('مراسلة مقدم الخدمة عبر المنصة')}
+      />
+
+      {/* Oman Construction AI Consultant Bot with Needs Estimator */}
+      <OmanConstructionChatbot />
+
+      {/* Auth Modal with Strict Google / Manual Credential Authentication & Action Prompt */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onOpenRegisterPage={() => setActiveTab('register')}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setActionPromptMessage(null);
+        }}
+        actionPromptMessage={actionPromptMessage}
+        onOpenRegisterPage={() => {
+          setIsAuthModalOpen(false);
+          setActiveTab('register');
+        }}
+        onLoginSuccess={(role) => {
+          setIsAuthModalOpen(false);
+          if (role === 'admin') {
+            setActiveTab('admin');
+            showToast('مرحباً بك يا صاحب المنصة! تم فتح لوحة الإدارة العامة.');
+            confetti({ particleCount: 50, spread: 70, origin: { y: 0.7 } });
+          } else if (role === 'contractor' || role === 'consultant') {
+            setActiveTab('provider_portal');
+            showToast('مرحباً بك في صفحة مقدم الخدمة! يمكنك الآن تحديد موقع مقرك وإدارة خدماتك.');
+          } else {
+            setActiveTab('contractors');
+            showToast('مرحباً بك! تم تسجيل الدخول بنجاح، يمكنك الآن طلب عروض الأسعار والتواصل.');
+          }
+        }}
         onAdminLoginSuccess={() => {
+          setIsAuthModalOpen(false);
           setActiveTab('admin');
           showToast('مرحباً بك يا صاحب المنصة! تم فتح لوحة الإدارة.');
           confetti({ particleCount: 50, spread: 70, origin: { y: 0.7 } });
@@ -650,10 +1100,16 @@ function MarketplaceApp() {
 
 export default function App() {
   return (
-    <CurrencyProvider>
-      <AuthProvider>
-        <MarketplaceApp />
-      </AuthProvider>
-    </CurrencyProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <LogoProvider>
+          <CurrencyProvider>
+            <AuthProvider>
+              <MarketplaceApp />
+            </AuthProvider>
+          </CurrencyProvider>
+        </LogoProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }
